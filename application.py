@@ -126,7 +126,7 @@ class User(Resource):
             }
         )
         except Exception as ex:
-            return {'message': f'An error occurred creating the user {ex}'}
+            return {'message': f'An error occurred creating the user {ex}'}, 500
 
         return {'name:': user_data['name'], 'email': user_data['email'], 'userId': userId}, 201
 
@@ -134,11 +134,14 @@ class User(Resource):
         pass
 
     def delete(self, userId):
-        result = dynamo.tables['UserDatabase'].delete_item(Key={
-                'userId': userId
-            },
-            ReturnValues='ALL_OLD'
-        )
+        try: 
+            result = dynamo.tables['UserDatabase'].delete_item(Key={
+                    'userId': userId
+                },
+                ReturnValues='ALL_OLD'
+            )
+        except Exception as ex:
+            return {'message': f'An error occurred deleting the user {ex}'}, 500
         
         if 'Attributes' in result:
             return {'message': f'userId {userId} was deleted'}, 200
