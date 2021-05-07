@@ -3,7 +3,7 @@ from flask_restful import Resource, Api, reqparse
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password, password_matches
+from helpers import generate_uuid, hash_password, password_matches, create_timestamp
 
 
 application = Flask(__name__)
@@ -43,13 +43,22 @@ with application.app_context():
 
 def find_by_email(email):
     result = dynamo.tables['UserDatabase'].scan(
-        ProjectionExpression='email,password',
+        ProjectionExpression='email,password,userId',
         FilterExpression=Attr('email').eq(email)
     )
     
     if len(result['Items']) != 0:
         return result['Items']
     
+def insert_login_timestamp(userId):
+    dynamo.tables['UserDatabase'].update_item(Key={
+            'userId': userId
+            },
+            UpdateExpression='SET LastLoginDateTime = :l',
+            ExpressionAttributeValues={
+                ':l': create_timestamp()
+            }
+        )
 
 
 class User(Resource):
@@ -131,6 +140,7 @@ class Login(Resource):
     )
 
     def post(self):
+        # LOGIN TIME
         login_data = Login.parser_post_login.parse_args(strict=True)
 
         retrieved_data = find_by_email(login_data['email'])
@@ -139,6 +149,7 @@ class Login(Resource):
             return {'message': 'User not found'}, 404
         
         if password_matches(login_data['password'], retrieved_data[0]['password']):
+            insert_login_timestamp(retrieved_data[0]['userId'])
             return {'message': 'User authenticated'}, 200
         else:
             return {'message': 'Password validation failed'}, 403
