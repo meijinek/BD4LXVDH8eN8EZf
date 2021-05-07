@@ -57,14 +57,14 @@ def find_by_id(userId):
         )
 
     if 'Item' in result:
-        return {'name': result['Item']['name'], 'email': result['Item']['email'], 'LastLoginDateTime': result['Item']['LastLoginDateTime']} if 'LastLoginDateTime' in result['Item'] else {'name': result['Item']['name'], 'email': result['Item']['email']}
+        return {'name': result['Item']['name'], 'email': result['Item']['email'], 'lastLoginDateTime': result['Item']['lastLoginDateTime']} if 'lastLoginDateTime' in result['Item'] else {'name': result['Item']['name'], 'email': result['Item']['email']}
     
     
 def insert_login_timestamp(userId):
     dynamo.tables['UserDatabase'].update_item(Key={
             'userId': userId
             },
-            UpdateExpression='SET LastLoginDateTime = :l',
+            UpdateExpression='SET lastLoginDateTime = :l',
             ExpressionAttributeValues={
                 ':l': create_timestamp()
             }
@@ -134,7 +134,16 @@ class User(Resource):
         pass
 
     def delete(self, userId):
-        pass
+        result = dynamo.tables['UserDatabase'].delete_item(Key={
+                'userId': userId
+            },
+            ReturnValues='ALL_OLD'
+        )
+        
+        if 'Attributes' in result:
+            return {'message': f'userId {userId} was deleted'}, 200
+            
+        return {'message': f'userId {userId} does not exist'}, 404
 
 
 class Users(Resource):
@@ -155,7 +164,6 @@ class Login(Resource):
     )
 
     def post(self):
-        # LOGIN TIME
         login_data = Login.parser_post_login.parse_args(strict=True)
 
         retrieved_data = find_by_email(login_data['email'])
