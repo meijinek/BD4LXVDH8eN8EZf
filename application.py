@@ -3,7 +3,7 @@ from flask_restful import Resource, Api, reqparse
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password
+from helpers import generate_uuid, hash_password, password_matches
 
 
 application = Flask(__name__)
@@ -43,12 +43,12 @@ with application.app_context():
 
 def find_by_email(email):
     result = dynamo.tables['UserDatabase'].scan(
-        ProjectionExpression='email',
+        ProjectionExpression='email,password',
         FilterExpression=Attr('email').eq(email)
     )
-
+    
     if len(result['Items']) != 0:
-        return True
+        return result['Items']
     
 
 
@@ -118,7 +118,30 @@ class Users(Resource):
 
 
 class Login(Resource):
-    pass
+    parser_post_login = reqparse.RequestParser()
+    parser_post_login.add_argument(
+        'email',
+        required=True,
+        help="Email cannot be left blank"
+    )
+    parser_post_login.add_argument(
+        'password',
+        required=True,
+        help="Password cannot be left blank"
+    )
+
+    def post(self):
+        login_data = Login.parser_post_login.parse_args(strict=True)
+
+        retrieved_data = find_by_email(login_data['email'])
+
+        if retrieved_data == None:
+            return {'message': 'User not found'}, 404
+        
+        if password_matches(login_data['password'], retrieved_data[0]['password']):
+            return {'message': 'User authenticated'}, 200
+        else:
+            return {'message': 'Password validation failed'}, 403
 
 
 api.add_resource(User, '/user/<string:userId>', '/user')
