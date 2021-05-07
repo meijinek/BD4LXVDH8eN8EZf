@@ -2,6 +2,8 @@ from flask import Flask
 from flask_restful import Resource, Api, reqparse
 from flask_dynamo import Dynamo
 from boto3.session import Session
+from boto3.dynamodb.conditions import Attr
+from helpers import generate_uuid, hash_password
 
 
 application = Flask(__name__)
@@ -11,7 +13,7 @@ boto_sess = Session(region_name="eu-west-2")
 
 application.config['DYNAMO_TABLES'] = [
     {
-         'TableName':  'ItemTableWithImages',
+         'TableName':  'UserDatabase',
          'AttributeDefinitions': [{
              'AttributeName': 'userId',
              'AttributeType': 'S'
@@ -39,24 +41,31 @@ with application.app_context():
 5. User PATCH
 '''
 
+def find_by_email(email):
+    result = dynamo.tables['UserDatabase'].scan(
+        ProjectionExpression='email',
+        FilterExpression=Attr('email').eq(email)
+    )
+
+    if len(result['Items']) != 0:
+        return True
+    
+
 
 class User(Resource):
     parser_post = reqparse.RequestParser()
     parser_post.add_argument(
             'name',
-            type=string,
             required=True,
             help="Name cannot be left blank"
         )
     parser_post.add_argument(
             'email',
-            type=string,
             required=True,
             help="Email cannot be left blank"
         )
     parser_post.add_argument(
             'password',
-            type=string,
             required=True,
             help="Password cannot be left blank"
         )
@@ -64,30 +73,43 @@ class User(Resource):
     parser_patch = reqparse.RequestParser()
     parser_patch.add_argument(
             'name',
-            type=string,
             required=False
         )
     parser_patch.add_argument(
             'email',
-            type=string,
             required=False
         )
     parser_patch.add_argument(
             'password',
-            type=string,
             required=False
         )
 
-    def get(self, name):
+    def get(self, userId):
         pass
 
-    def post(self, name):
+    def post(self):
+        user_data = User.parser_post.parse_args(strict=True)
+        
+        if find_by_email(user_data['email']):
+            return {'message': 'User with the email address provider already exists'}, 400
+        userId = generate_uuid()
+        try:
+            dynamo.tables['UserDatabase'].put_item(Item={
+                'name': user_data['name'],
+                'email': user_data['email'],
+                'password': hash_password(user_data['password']),
+                'userId': userId
+            }
+        )
+        except Exception as ex:
+            return {'message': f'An error occurred creating the user {ex}'}
+
+        return {'name:': user_data['name'], 'email': user_data['email'], 'userId': userId}, 201
+
+    def patch(self, userId):
         pass
 
-    def patch(self, name):
-        pass
-
-    def delete(self, name):
+    def delete(self, userId):
         pass
 
 
@@ -99,7 +121,7 @@ class Login(Resource):
     pass
 
 
-api.add_resource(User, '/user/<string:userId>')
+api.add_resource(User, '/user/<string:userId>', '/user')
 api.add_resource(Users, '/users')
 api.add_resource(Login, '/login')
 
