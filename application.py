@@ -49,6 +49,16 @@ def find_by_email(email):
     
     if len(result['Items']) != 0:
         return result['Items']
+
+def find_by_id(userId):
+    result = dynamo.tables['UserDatabase'].get_item(Key={
+            'userId': userId
+            }
+        )
+
+    if 'Item' in result:
+        return {'name': result['Item']['name'], 'email': result['Item']['email'], 'LastLoginDateTime': result['Item']['LastLoginDateTime']} if 'LastLoginDateTime' in result['Item'] else {'name': result['Item']['name'], 'email': result['Item']['email']}
+    
     
 def insert_login_timestamp(userId):
     dynamo.tables['UserDatabase'].update_item(Key={
@@ -94,7 +104,12 @@ class User(Resource):
         )
 
     def get(self, userId):
-        pass
+        retrieved_data = find_by_id(userId)
+
+        if retrieved_data:
+            return retrieved_data, 200
+
+        return {'message': 'userId not found'}, 404
 
     def post(self):
         user_data = User.parser_post.parse_args(strict=True)
