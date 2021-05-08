@@ -3,7 +3,7 @@ from flask_restful import Resource, Api, reqparse
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password, password_matches, create_timestamp
+from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values
 
 
 application = Flask(__name__)
@@ -32,14 +32,6 @@ dynamo = Dynamo(application)
 with application.app_context():
     dynamo.create_all()
 
-'''
-1. User POST
-2. User LOGIN
-3. User GET
-4. User DELETE
-4. Users GET
-5. User PATCH
-'''
 
 def find_by_email(email):
     result = dynamo.tables['UserDatabase'].scan(
@@ -68,6 +60,14 @@ def insert_login_timestamp(userId):
             ExpressionAttributeValues={
                 ':l': create_timestamp()
             }
+        )
+
+def update_by_id(userId, update_data):
+    dynamo.tables['UserDatabase'].update_item(Key={
+            'userId': userId
+            },
+            UpdateExpression=create_update_expression(update_data),
+            ExpressionAttributeValues=create_expression_attribute_values(update_data)
         )
 
 
@@ -109,7 +109,7 @@ class User(Resource):
         if retrieved_data:
             return retrieved_data, 200
 
-        return {'message': 'userId not found'}, 404
+        return {'message': f'userId {userId} not found'}, 404
 
     def post(self):
         user_data = User.parser_post.parse_args(strict=True)
@@ -131,7 +131,17 @@ class User(Resource):
         return {'fullname:': user_data['fullname'], 'email': user_data['email'], 'userId': userId}, 201
 
     def patch(self, userId):
-        pass
+        update_data = User.parser_patch.parse_args(strict=True)
+
+        if list(update_data.values()) == [None, None, None]:
+            return {'message': 'No user attributes to update provided'}, 400
+
+        if find_by_id(userId) == None:
+            return {'message': f'userId {userId} not found'}, 404
+
+        update_by_id(userId, update_data)
+
+        return find_by_id(userId), 200
 
     def delete(self, userId):
         try: 
