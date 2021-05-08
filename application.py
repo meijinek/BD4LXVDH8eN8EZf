@@ -32,6 +32,11 @@ dynamo = Dynamo(application)
 with application.app_context():
     dynamo.create_all()
 
+'''
+1. Email already exists.
+2. Password complexity.
+3. Email format validation.
+'''
 
 def find_by_email(email):
     result = dynamo.tables['UserDatabase'].scan(
@@ -115,7 +120,7 @@ class User(Resource):
         user_data = User.parser_post.parse_args(strict=True)
         
         if find_by_email(user_data['email']):
-            return {'message': 'User with the email address provider already exists'}, 400
+            return {'message': 'User with the email address provided already exists'}, 400
         userId = generate_uuid()
         try:
             dynamo.tables['UserDatabase'].put_item(Item={
@@ -138,6 +143,11 @@ class User(Resource):
 
         if find_by_id(userId) == None:
             return {'message': f'userId {userId} not found'}, 404
+
+        if update_data.get('email'):
+            found = find_by_email(update_data['email'])
+            if found != None and found[0]['userId'] != userId:
+                return {'message': 'User with the email address provided already exists'}, 400
 
         update_by_id(userId, update_data)
 
