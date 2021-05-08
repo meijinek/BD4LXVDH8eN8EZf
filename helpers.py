@@ -1,5 +1,6 @@
 from uuid import uuid4
 from passlib.hash import pbkdf2_sha256
+from flask_restful import reqparse
 import datetime
 
 def generate_uuid():
@@ -42,3 +43,52 @@ def create_expression_attribute_values(update_data):
         expression_attribute_values[':p'] = hash_password(update_data.get('password'))
     
     return expression_attribute_values
+
+def create_parser(method, resource):
+    if method == 'post' and resource == 'user':
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+                'fullname',
+                required=True,
+                help="Fullname cannot be left blank"
+            )
+        parser.add_argument(
+                'email',
+                required=True,
+                help="Email cannot be left blank"
+            )
+        parser.add_argument(
+                'password',
+                required=True,
+                help="Password cannot be left blank"
+            )
+
+    if method == 'patch' and resource == 'user':
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+                'fullname',
+                required=False
+            )
+        parser.add_argument(
+                'email',
+                required=False
+            )
+        parser.add_argument(
+                'password',
+                required=False
+            )
+
+    if method == 'post' and resource == 'login':
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+            'email',
+            required=True,
+            help="Email cannot be left blank"
+        )
+        parser.add_argument(
+            'password',
+            required=True,
+            help="Password cannot be left blank"
+        )
+
+    return parser

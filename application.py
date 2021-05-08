@@ -1,9 +1,9 @@
 from flask import Flask
-from flask_restful import Resource, Api, reqparse
+from flask_restful import Resource, Api
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values
+from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser
 
 
 application = Flask(__name__)
@@ -33,9 +33,9 @@ with application.app_context():
     dynamo.create_all()
 
 '''
-1. Email already exists.
-2. Password complexity.
-3. Email format validation.
+1. Password complexity.
+2. Email format validation.
+3. Lint and clean up imports.
 '''
 
 def find_by_email(email):
@@ -77,37 +77,6 @@ def update_by_id(userId, update_data):
 
 
 class User(Resource):
-    parser_post = reqparse.RequestParser()
-    parser_post.add_argument(
-            'fullname',
-            required=True,
-            help="Fullname cannot be left blank"
-        )
-    parser_post.add_argument(
-            'email',
-            required=True,
-            help="Email cannot be left blank"
-        )
-    parser_post.add_argument(
-            'password',
-            required=True,
-            help="Password cannot be left blank"
-        )
-
-    parser_patch = reqparse.RequestParser()
-    parser_patch.add_argument(
-            'fullname',
-            required=False
-        )
-    parser_patch.add_argument(
-            'email',
-            required=False
-        )
-    parser_patch.add_argument(
-            'password',
-            required=False
-        )
-
     def get(self, userId):
         retrieved_data = find_by_id(userId)
 
@@ -117,7 +86,8 @@ class User(Resource):
         return {'message': f'userId {userId} not found'}, 404
 
     def post(self):
-        user_data = User.parser_post.parse_args(strict=True)
+        parser = create_parser('post', 'user')
+        user_data = parser.parse_args(strict=True)
         
         if find_by_email(user_data['email']):
             return {'message': 'User with the email address provided already exists'}, 400
@@ -136,7 +106,8 @@ class User(Resource):
         return {'fullname:': user_data['fullname'], 'email': user_data['email'], 'userId': userId}, 201
 
     def patch(self, userId):
-        update_data = User.parser_patch.parse_args(strict=True)
+        parser = create_parser('patch', 'user')
+        update_data = parser.parse_args(strict=True)
 
         if list(update_data.values()) == [None, None, None]:
             return {'message': 'No user attributes to update provided'}, 400
@@ -182,20 +153,9 @@ class Users(Resource):
 
 
 class Login(Resource):
-    parser_post_login = reqparse.RequestParser()
-    parser_post_login.add_argument(
-        'email',
-        required=True,
-        help="Email cannot be left blank"
-    )
-    parser_post_login.add_argument(
-        'password',
-        required=True,
-        help="Password cannot be left blank"
-    )
-
     def post(self):
-        login_data = Login.parser_post_login.parse_args(strict=True)
+        parser = create_parser('post', 'login')
+        login_data = parser.parse_args(strict=True)
 
         retrieved_data = find_by_email(login_data['email'])
 
