@@ -57,7 +57,7 @@ def find_by_id(userId):
         )
 
     if 'Item' in result:
-        return {'name': result['Item']['name'], 'email': result['Item']['email'], 'lastLoginDateTime': result['Item']['lastLoginDateTime']} if 'lastLoginDateTime' in result['Item'] else {'name': result['Item']['name'], 'email': result['Item']['email']}
+        return {'fullname': result['Item']['fullname'], 'email': result['Item']['email'], 'lastLoginDateTime': result['Item']['lastLoginDateTime']} if 'lastLoginDateTime' in result['Item'] else {'fullname': result['Item']['fullname'], 'email': result['Item']['email']}
     
     
 def insert_login_timestamp(userId):
@@ -74,9 +74,9 @@ def insert_login_timestamp(userId):
 class User(Resource):
     parser_post = reqparse.RequestParser()
     parser_post.add_argument(
-            'name',
+            'fullname',
             required=True,
-            help="Name cannot be left blank"
+            help="Fullname cannot be left blank"
         )
     parser_post.add_argument(
             'email',
@@ -91,7 +91,7 @@ class User(Resource):
 
     parser_patch = reqparse.RequestParser()
     parser_patch.add_argument(
-            'name',
+            'fullname',
             required=False
         )
     parser_patch.add_argument(
@@ -119,16 +119,16 @@ class User(Resource):
         userId = generate_uuid()
         try:
             dynamo.tables['UserDatabase'].put_item(Item={
-                'name': user_data['name'],
+                'fullname': user_data['fullname'],
                 'email': user_data['email'],
                 'password': hash_password(user_data['password']),
                 'userId': userId
             }
         )
         except Exception as ex:
-            return {'message': f'An error occurred creating the user {ex}'}, 500
+            return {'message': f'An error occurred creating the user: {ex}'}, 500
 
-        return {'name:': user_data['name'], 'email': user_data['email'], 'userId': userId}, 201
+        return {'fullname:': user_data['fullname'], 'email': user_data['email'], 'userId': userId}, 201
 
     def patch(self, userId):
         pass
@@ -141,7 +141,7 @@ class User(Resource):
                 ReturnValues='ALL_OLD'
             )
         except Exception as ex:
-            return {'message': f'An error occurred deleting the user {ex}'}, 500
+            return {'message': f'An error occurred deleting the user: {ex}'}, 500
         
         if 'Attributes' in result:
             return {'message': f'userId {userId} was deleted'}, 200
@@ -150,7 +150,15 @@ class User(Resource):
 
 
 class Users(Resource):
-    pass
+    def get(self):
+        try:
+            result = dynamo.tables['UserDatabase'].scan(
+                ProjectionExpression='fullname,email,userId,lastLoginDateTime'
+            )
+        except Exception as ex:
+            return {'message': f'An error occurred retrieving the users: {ex}'}, 500
+        
+        return result['Items'], 200
 
 
 class Login(Resource):
