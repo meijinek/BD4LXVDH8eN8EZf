@@ -3,6 +3,7 @@ from passlib.hash import pbkdf2_sha256
 from flask_restful import reqparse
 import datetime
 from password_strength import PasswordPolicy
+from email_validator import validate_email, EmailNotValidError
 
 def generate_uuid():
     return str(uuid4())
@@ -117,3 +118,9 @@ def bad_password(password):
     )
 
     return policy.test(password)
+
+def email_invalid(email):
+    try:
+        valid = validate_email(email)
+    except EmailNotValidError as e:
+        return str(e)

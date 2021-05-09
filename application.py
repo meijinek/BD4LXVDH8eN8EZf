@@ -3,7 +3,7 @@ from flask_restful import Resource, Api
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser, empty_data, bad_password
+from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser, empty_data, bad_password, email_invalid
 
 
 application = Flask(__name__)
@@ -32,11 +32,6 @@ dynamo = Dynamo(application)
 with application.app_context():
     dynamo.create_all()
 
-'''
-1. Password complexity.
-2. Email format validation.
-3. Lint and clean up imports.
-'''
 
 def find_by_email(email):
     result = dynamo.tables['UserDatabase'].scan(
@@ -100,6 +95,9 @@ class User(Resource):
         if bad_password(user_data['password']):
             return {'message': f'Password does not meet complexity requirements {str(bad_password(user_data["password"]))}'}, 400
 
+        if email_invalid(user_data['email']):
+            return {'message': f'Email invalid: {email_invalid(user_data["email"])}'}, 400
+
         userId = generate_uuid()
         try:
             dynamo.tables['UserDatabase'].put_item(Item={
@@ -130,6 +128,8 @@ class User(Resource):
             return {'message': f'userId {userId} not found'}, 404
 
         if update_data.get('email'):
+            if email_invalid(update_data['email']):
+                return {'message': f'Email invalid: {email_invalid(update_data["email"])}'}, 400
             found = find_by_email(update_data['email'])
             if found != None and found[0]['userId'] != userId:
                 return {'message': 'User with the email address provided already exists'}, 400
