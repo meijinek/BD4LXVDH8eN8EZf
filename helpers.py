@@ -2,6 +2,7 @@ from uuid import uuid4
 from passlib.hash import pbkdf2_sha256
 from flask_restful import reqparse
 import datetime
+from password_strength import PasswordPolicy
 
 def generate_uuid():
     return str(uuid4())
@@ -105,3 +106,14 @@ def empty_data(data, method):
                 empty_keys.append(k)
 
     return empty_keys
+
+def bad_password(password):
+    policy = PasswordPolicy.from_names(
+        length=6,
+        uppercase=0,
+        numbers=0,
+        special=0,
+        nonletters=0,
+    )
+
+    return policy.test(password)

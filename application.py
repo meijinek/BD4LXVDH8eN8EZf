@@ -3,7 +3,7 @@ from flask_restful import Resource, Api
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser, empty_data
+from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser, empty_data, bad_password
 
 
 application = Flask(__name__)
@@ -96,6 +96,10 @@ class User(Resource):
 
         if find_by_email(user_data['email']):
             return {'message': 'User with the email address provided already exists'}, 400
+
+        if bad_password(user_data['password']):
+            return {'message': f'Password does not meet complexity requirements {str(bad_password(user_data["password"]))}'}, 400
+
         userId = generate_uuid()
         try:
             dynamo.tables['UserDatabase'].put_item(Item={
@@ -129,6 +133,10 @@ class User(Resource):
             found = find_by_email(update_data['email'])
             if found != None and found[0]['userId'] != userId:
                 return {'message': 'User with the email address provided already exists'}, 400
+
+        if update_data.get('password'):
+            if bad_password(update_data['password']):
+                return {'message': f'Password does not meet complexity requirements {str(bad_password(update_data["password"]))}'}, 400
 
         update_by_id(userId, update_data)
 
