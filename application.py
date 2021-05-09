@@ -3,7 +3,7 @@ from flask_restful import Resource, Api
 from flask_dynamo import Dynamo
 from boto3.session import Session
 from boto3.dynamodb.conditions import Attr
-from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser
+from helpers import generate_uuid, hash_password, password_matches, create_timestamp, create_update_expression, create_expression_attribute_values, create_parser, empty_data
 
 
 application = Flask(__name__)
@@ -88,7 +88,12 @@ class User(Resource):
     def post(self):
         parser = create_parser('post', 'user')
         user_data = parser.parse_args(strict=True)
-        
+
+        empty_values = empty_data(user_data, 'post')
+
+        if empty_values:
+            return {'message': f'The following keys have empty values: {str(empty_values)}'}, 400
+
         if find_by_email(user_data['email']):
             return {'message': 'User with the email address provided already exists'}, 400
         userId = generate_uuid()
@@ -108,6 +113,11 @@ class User(Resource):
     def patch(self, userId):
         parser = create_parser('patch', 'user')
         update_data = parser.parse_args(strict=True)
+
+        empty_values = empty_data(update_data, 'patch')
+
+        if empty_values:
+            return {'message': f'The following keys have empty values: {str(empty_values)}'}, 400
 
         if list(update_data.values()) == [None, None, None]:
             return {'message': 'No user attributes to update provided'}, 400
@@ -165,8 +175,8 @@ class Login(Resource):
         if password_matches(login_data['password'], retrieved_data[0]['password']):
             insert_login_timestamp(retrieved_data[0]['userId'])
             return {'message': 'User authenticated'}, 200
-        else:
-            return {'message': 'Password validation failed'}, 403
+        
+        return {'message': 'Password validation failed'}, 403
 
 
 api.add_resource(User, '/user/<string:userId>', '/user')

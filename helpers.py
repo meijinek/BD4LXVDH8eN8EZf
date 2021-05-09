@@ -92,3 +92,16 @@ def create_parser(method, resource):
         )
 
     return parser
+
+def empty_data(data, method):
+    empty_keys = []
+    if method == 'post':
+        for k, v in data.items():
+            if len(v) == 0:
+                empty_keys.append(k)
+    if method == 'patch':
+        for k, v in data.items():
+            if v != None and len(v) == 0:
+                empty_keys.append(k)
+
+    return empty_keys
