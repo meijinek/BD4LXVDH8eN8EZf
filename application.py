@@ -13,16 +13,16 @@ boto_sess = Session(region_name="eu-west-2")
 
 application.config['DYNAMO_TABLES'] = [
     {
-         'TableName':  'UserDatabase',
-         'AttributeDefinitions': [{
-             'AttributeName': 'userId',
-             'AttributeType': 'S'
-         }],
-         'KeySchema': [{
-             'AttributeName': 'userId',
-             'KeyType': 'HASH'
-         }],
-         'BillingMode': 'PAY_PER_REQUEST'
+        'TableName':  'UserDatabase',
+        'AttributeDefinitions': [{
+            'AttributeName': 'userId',
+            'AttributeType': 'S'
+        }],
+        'KeySchema': [{
+            'AttributeName': 'userId',
+            'KeyType': 'HASH'
+        }],
+        'BillingMode': 'PAY_PER_REQUEST'
     }
 ]
 application.config['DYNAMO_SESSION'] = boto_sess
@@ -38,40 +38,44 @@ def find_by_email(email):
         ProjectionExpression='email,password,userId',
         FilterExpression=Attr('email').eq(email)
     )
-    
+
     if len(result['Items']) != 0:
         return result['Items']
 
+
 def find_by_id(userId):
     result = dynamo.tables['UserDatabase'].get_item(Key={
-            'userId': userId
-            }
-        )
+        'userId': userId
+    }
+    )
 
     if 'Item' in result:
         return {'fullname': result['Item']['fullname'], 'email': result['Item']['email'], 'lastLoginDateTime': result['Item']['lastLoginDateTime']} if 'lastLoginDateTime' in result['Item'] else {'fullname': result['Item']['fullname'], 'email': result['Item']['email']}
-    
-    
+
+
 def insert_login_timestamp(userId):
     dynamo.tables['UserDatabase'].update_item(Key={
-            'userId': userId
-            },
-            UpdateExpression='SET lastLoginDateTime = :l',
-            ExpressionAttributeValues={
-                ':l': create_timestamp()
-            }
-        )
+        'userId': userId
+    },
+        UpdateExpression='SET lastLoginDateTime = :l',
+        ExpressionAttributeValues={
+        ':l': create_timestamp()
+    }
+    )
+
 
 def update_by_id(userId, update_data):
     try:
         dynamo.tables['UserDatabase'].update_item(Key={
-                'userId': userId
-                },
-                UpdateExpression=create_update_expression(update_data),
-                ExpressionAttributeValues=create_expression_attribute_values(update_data)
-            )
+            'userId': userId
+        },
+            UpdateExpression=create_update_expression(update_data),
+            ExpressionAttributeValues=create_expression_attribute_values(
+                update_data)
+        )
         return True
     except Exception as ex:
+        print(ex)
         return None
 
 
@@ -94,7 +98,7 @@ class User(Resource):
             return {'message': f'The following keys have empty values: {str(empty_values)}'}, 400
 
         if find_by_email(user_data['email']):
-            return {'message': 'User with the email address provided already exists'}, 400
+            return {'message': f'User with {user_data["email"]} email address provided already exists'}, 400
 
         if bad_password(user_data['password']):
             return {'message': f'Password does not meet complexity requirements {str(bad_password(user_data["password"]))}'}, 400
@@ -110,7 +114,7 @@ class User(Resource):
                 'password': hash_password(user_data['password']),
                 'userId': userId
             }
-        )
+            )
         except Exception as ex:
             return {'message': f'An error occurred creating the user: {ex}'}, 500
 
@@ -128,14 +132,14 @@ class User(Resource):
         if list(update_data.values()) == [None, None, None]:
             return {'message': 'No user attributes to update provided'}, 400
 
-        if find_by_id(userId) == None:
+        if find_by_id(userId) is None:
             return {'message': f'userId {userId} not found'}, 404
 
         if update_data.get('email'):
             if email_invalid(update_data['email']):
                 return {'message': f'Email invalid: {email_invalid(update_data["email"])}'}, 400
             found = find_by_email(update_data['email'])
-            if found != None and found[0]['userId'] != userId:
+            if found is None and found[0]['userId'] != userId:
                 return {'message': 'User with the email address provided already exists'}, 400
 
         if update_data.get('password'):
@@ -148,18 +152,18 @@ class User(Resource):
         return {'message': 'A server error occurred while updating the user'}, 500
 
     def delete(self, userId):
-        try: 
+        try:
             result = dynamo.tables['UserDatabase'].delete_item(Key={
-                    'userId': userId
-                },
+                'userId': userId
+            },
                 ReturnValues='ALL_OLD'
             )
         except Exception as ex:
             return {'message': f'An error occurred deleting the user: {ex}'}, 500
-        
+
         if 'Attributes' in result:
             return {'message': f'userId {userId} was deleted'}, 200
-            
+
         return {'message': f'userId {userId} does not exist'}, 404
 
 
@@ -171,7 +175,7 @@ class Users(Resource):
             )
         except Exception as ex:
             return {'message': f'An error occurred retrieving the users: {ex}'}, 500
-        
+
         return result['Items'], 200
 
 
@@ -182,13 +186,13 @@ class Login(Resource):
 
         retrieved_data = find_by_email(login_data['email'])
 
-        if retrieved_data == None:
+        if retrieved_data is None:
             return {'message': 'User not found'}, 404
-        
+
         if password_matches(login_data['password'], retrieved_data[0]['password']):
             insert_login_timestamp(retrieved_data[0]['userId'])
             return {'message': 'User authenticated'}, 200
-        
+
         return {'message': 'Password validation failed'}, 403
 
 
