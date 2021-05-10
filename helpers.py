@@ -121,6 +121,6 @@ def bad_password(password):
 
 def email_invalid(email):
     try:
-        valid = validate_email(email)
-    except EmailNotValidError as e:
-        return str(e)
+        valid = validate_email(email, check_deliverability=False)
+    except EmailNotValidError as ex:
+        return str(ex)

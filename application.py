@@ -63,12 +63,16 @@ def insert_login_timestamp(userId):
         )
 
 def update_by_id(userId, update_data):
-    dynamo.tables['UserDatabase'].update_item(Key={
-            'userId': userId
-            },
-            UpdateExpression=create_update_expression(update_data),
-            ExpressionAttributeValues=create_expression_attribute_values(update_data)
-        )
+    try:
+        dynamo.tables['UserDatabase'].update_item(Key={
+                'userId': userId
+                },
+                UpdateExpression=create_update_expression(update_data),
+                ExpressionAttributeValues=create_expression_attribute_values(update_data)
+            )
+        return True
+    except Exception as ex:
+        return None
 
 
 class User(Resource):
@@ -138,9 +142,10 @@ class User(Resource):
             if bad_password(update_data['password']):
                 return {'message': f'Password does not meet complexity requirements {str(bad_password(update_data["password"]))}'}, 400
 
-        update_by_id(userId, update_data)
+        if update_by_id(userId, update_data):
+            return find_by_id(userId), 200
 
-        return find_by_id(userId), 200
+        return {'message': 'A server error occurred while updating the user'}, 500
 
     def delete(self, userId):
         try: 
