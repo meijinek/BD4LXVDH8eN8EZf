@@ -193,7 +193,7 @@ class Login(Resource):
             insert_login_timestamp(retrieved_data[0]['userId'])
             return {'message': 'User authenticated'}, 200
 
-        return {'message': 'Password validation failed'}, 403
+        return {'message': 'Password validation failed'}, 401
 
 
 api.add_resource(User, '/user/<string:userId>', '/user')
